@@ -1,16 +1,20 @@
 package main
 
 import (
-	"log"
-	"github.com/joho/godotenv"
-	"os"
-	"fmt"
 	"encoding/csv"
+	"fmt"
+	"github.com/joho/godotenv"
 	"io"
+	"log"
+	"os"
+	"github.com/watson-developer-cloud/go-sdk/texttospeechv1"
+	"bytes"
+  	"github.com/IBM/go-sdk-core/core"
 )
 
 const AUDIO_DIR_PATH string = "audio"
 const CSV_FILE string = "words.csv"
+
 
 func GetAPIKey() string {
 	apiKey, exists := os.LookupEnv("TEXT_TO_SPEECH_IAM_APIKEY")
@@ -28,53 +32,84 @@ func GetEndpoint() string {
 	return url
 }
 
-func ReadCsvFile(filePath string)  {
-    // Load a csv file.
-    f, _ := os.Open(filePath)
+func GetAndSaveAudio(text string) {
+	textToSpeech, textToSpeechErr := texttospeechv1.NewTextToSpeechV1(&texttospeechv1.TextToSpeechV1Options{
+      URL: GetEndpoint(),
+      Authenticator: &core.IamAuthenticator{
+			ApiKey: GetAPIKey(), // <--- found in the docs somewhere like Apikey, another mistake
+		},
+      // IAMApiKey: "{apiKey}",  <--- this is from official docs, doesn't work 
+    })
 
-    // Create a new reader.
-    r := csv.NewReader(f)
-    for {
-        record, err := r.Read()
+	  if textToSpeechErr != nil {
+	    panic(textToSpeechErr)
+	  }
 
-        if err == io.EOF {
-            break
-        }
+	  response, responseErr := textToSpeech.Synthesize(
+	    &texttospeechv1.SynthesizeOptions{
+	      Text:   core.StringPtr(text),
+	      Accept: core.StringPtr("audio/mp3"),
+	      Voice:  core.StringPtr("fr-FR_ReneeV3Voice"),
+	    },
+	  )
+	  if responseErr != nil {
+	    panic(responseErr)
+	  }
+	  result := textToSpeech.GetSynthesizeResult(response)
+	  if result != nil {
+	    buff := new(bytes.Buffer)
+	    buff.ReadFrom(result)
+	    fileName := text + ".mp3"
+	    fmt.Println(fileName)
+	    file, _ := os.Create(fileName)
+	    file.Write(buff.Bytes())
+	    file.Close()
+	}
+}
 
-        if err != nil {
-            panic(err)
-        }
-        // Display record.
-        // ... Display record length.
-        fmt.Println(record)
-        fmt.Println(len(record))
+func ReadCsvFile(filePath string) {
+	// Load a csv file.
+	f, _ := os.Open(filePath)
 
-        // Display first element of each row
+	// Create a new reader.
+	r := csv.NewReader(f)
+	for {
+		record, err := r.Read()
 
-        fmt.Println(record[0])
+		if err == io.EOF {
+			break
+		}
 
-        // Display all elements of a row (record)
-        // for value := range record {
-        //     fmt.Printf("  %v\n", record[value])
-        // }
-    }
+		if err != nil {
+			panic(err)
+		}
+		// Display record.
+		// ... Display record length.
+		fmt.Println(record)
+		fmt.Println(len(record))
+
+		// Display first element of each row
+
+		GetAndSaveAudio(record[0])
+		fmt.Println(record[0])
+
+		// Display all elements of a row (record)
+		// for value := range record {
+		//     fmt.Printf("  %v\n", record[value])
+		// }
+	}
 }
 
 // init is invoked before main()
 func init() {
-    // loads values from .env into the system
-    if err := godotenv.Load("ibm-credentials.env"); err != nil {
-        log.Fatal("No .env file found")
-    }
+	// loads values from .env into the system
+	if err := godotenv.Load("ibm-credentials.env"); err != nil {
+		log.Fatal("No .env file found")
+	}
+	
 }
 
 func main() {
-
-	apiKey := GetAPIKey()
-	fmt.Println(apiKey)
-	url := GetEndpoint()
-	fmt.Println(url)
-
 	// if _, err := os.Stat(AUDIO_DIR_PATH); os.IsNotExist(err) {
 	//     os.Mkdir(AUDIO_DIR_PATH, os.ModeDir)
 	// }
