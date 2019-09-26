@@ -1,20 +1,21 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"fmt"
-	"github.com/joho/godotenv"
 	"io"
 	"log"
 	"os"
+	"path/filepath"
+
+	"github.com/IBM/go-sdk-core/core"
+	"github.com/joho/godotenv"
 	"github.com/watson-developer-cloud/go-sdk/texttospeechv1"
-	"bytes"
-  	"github.com/IBM/go-sdk-core/core"
 )
 
 const AUDIO_DIR_PATH string = "audio"
 const CSV_FILE string = "words.csv"
-
 
 func GetAPIKey() string {
 	apiKey, exists := os.LookupEnv("TEXT_TO_SPEECH_IAM_APIKEY")
@@ -34,36 +35,39 @@ func GetEndpoint() string {
 
 func GetAndSaveAudio(text string) {
 	textToSpeech, textToSpeechErr := texttospeechv1.NewTextToSpeechV1(&texttospeechv1.TextToSpeechV1Options{
-      URL: GetEndpoint(),
-      Authenticator: &core.IamAuthenticator{
+		URL: GetEndpoint(),
+		Authenticator: &core.IamAuthenticator{
 			ApiKey: GetAPIKey(), // <--- found in the docs somewhere like Apikey, another mistake
 		},
-      // IAMApiKey: "{apiKey}",  <--- this is from official docs, doesn't work 
-    })
+		// IAMApiKey: "{apiKey}",  <--- this is from official docs, doesn't work
+	})
 
-	  if textToSpeechErr != nil {
-	    panic(textToSpeechErr)
-	  }
+	if textToSpeechErr != nil {
+		panic(textToSpeechErr)
+	}
 
-	  response, responseErr := textToSpeech.Synthesize(
-	    &texttospeechv1.SynthesizeOptions{
-	      Text:   core.StringPtr(text),
-	      Accept: core.StringPtr("audio/mp3"),
-	      Voice:  core.StringPtr("fr-FR_ReneeV3Voice"),
-	    },
-	  )
-	  if responseErr != nil {
-	    panic(responseErr)
-	  }
-	  result := textToSpeech.GetSynthesizeResult(response)
-	  if result != nil {
-	    buff := new(bytes.Buffer)
-	    buff.ReadFrom(result)
-	    fileName := text + ".mp3"
-	    fmt.Println(fileName)
-	    file, _ := os.Create(fileName)
-	    file.Write(buff.Bytes())
-	    file.Close()
+	response, responseErr := textToSpeech.Synthesize(
+		&texttospeechv1.SynthesizeOptions{
+			Text:   core.StringPtr(text),
+			Accept: core.StringPtr("audio/mp3"),
+			Voice:  core.StringPtr("fr-FR_ReneeV3Voice"),
+		},
+	)
+	if responseErr != nil {
+		panic(responseErr)
+	}
+	result := textToSpeech.GetSynthesizeResult(response)
+	if result != nil {
+		buff := new(bytes.Buffer)
+		buff.ReadFrom(result)
+
+		pwd, _ := os.Getwd()
+
+		fileName := filepath.Join(pwd, "audio", text+".mp3")
+		fmt.Println(fileName)
+		file, _ := os.Create(fileName)
+		file.Write(buff.Bytes())
+		file.Close()
 	}
 }
 
@@ -106,7 +110,7 @@ func init() {
 	if err := godotenv.Load("ibm-credentials.env"); err != nil {
 		log.Fatal("No .env file found")
 	}
-	
+
 }
 
 func main() {
@@ -115,7 +119,7 @@ func main() {
 	// }
 
 	// Create a directory. Ignore any issues raised in case the dir exists
-	_ = os.Mkdir(AUDIO_DIR_PATH, os.ModeDir)
+	_ = os.Mkdir(AUDIO_DIR_PATH, 0700)
 
 	ReadCsvFile(CSV_FILE)
 
