@@ -14,8 +14,8 @@ import (
 	"github.com/watson-developer-cloud/go-sdk/texttospeechv1"
 )
 
-const AUDIO_DIR_PATH string = "audio"
-const CSV_FILE string = "words.csv"
+const audioDirPath string = "audio"
+const csvFile string = "words.csv"
 
 func GetAPIKey() string {
 	apiKey, exists := os.LookupEnv("TEXT_TO_SPEECH_IAM_APIKEY")
@@ -63,7 +63,7 @@ func GetAndSaveAudio(text string) {
 
 		pwd, _ := os.Getwd()
 
-		fileName := filepath.Join(pwd, "audio", text+".mp3")
+		fileName := filepath.Join(pwd, audioDirPath, text+".mp3")
 		fmt.Println(fileName)
 		file, _ := os.Create(fileName)
 		file.Write(buff.Bytes())
@@ -119,8 +119,8 @@ func main() {
 	// }
 
 	// Create a directory. Ignore any issues raised in case the dir exists
-	_ = os.Mkdir(AUDIO_DIR_PATH, 0700)
+	_ = os.Mkdir(audioDirPath, 0700)
 
-	ReadCsvFile(CSV_FILE)
+	ReadCsvFile(csvFile)
 
 }
